@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 // the max log size
@@ -78,7 +76,7 @@ func (l *asyncFileLogger) writeFile(buf *bytes.Buffer) {
 	n, err := l.file.Write(buf.Bytes())
 	logbufpool.Put(buf)
 	if err != nil {
-		glog.Error("cannot write access log")
+		panic("cannot write access log")
 	}
 	l.sizeNum += int64(n)
 }
@@ -88,7 +86,7 @@ func (l *asyncFileLogger) rotateLog() {
 	l.file.Close()
 	err := os.Rename(l.filename, fmt.Sprintf("%s-%s", l.filename, time.Now().Format("20060102150405")))
 	if err != nil {
-		glog.Error("fail to rotate log")
+		panic("fail to rotate log")
 	}
 
 	l.file, err = openAppendFile(l.filename)
