@@ -103,13 +103,19 @@ func (l *asyncFileLogger) rotateLog() {
 func (l *asyncFileLogger) Close() error {
 	l.close <- struct{}{}
 
-	for buf := range l.queue {
-		l.writeFile(buf)
-		if len(l.queue) == 0 {
-			break
+	for {
+		select {
+		case buf := <-l.queue:
+			l.writeFile(buf)
+			if len(l.queue) == 0 {
+				goto Done
+			}
+		case <-time.After(time.Millisecond * 300):
+			goto Done
 		}
 	}
 
+Done:
 	l.file.Sync()
 	return l.file.Close()
 }
