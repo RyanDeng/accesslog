@@ -39,6 +39,26 @@ func TestLogger(t *testing.T) {
 	ast.EqualValues(100, count)
 
 }
+func TestLoggerNoLog(t *testing.T) {
+	ast := assert.New(t)
+	deleteTestFile()
+	l, err := newAsyncFileLogger(&Conf{Filename: testLogName})
+	ast.Nil(err)
+
+	err = l.Close()
+	ast.Nil(err)
+
+	f, err := os.Open(testLogName)
+	ast.Nil(err)
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	count := 0
+	for scanner.Scan() {
+		count++
+	}
+	ast.EqualValues(0, count)
+
+}
 
 func deleteTestFile() {
 	os.Remove(testLogName)
