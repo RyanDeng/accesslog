@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -27,7 +28,9 @@ var (
 			return bytes.NewBuffer(make([]byte, 0, bodyBufMax))
 		},
 	}
-	logging logger
+	logging  logger
+	reqBody  int32 = 0
+	respBody int32 = 0
 )
 
 type Conf struct {
@@ -36,17 +39,39 @@ type Conf struct {
 	ResponseBody bool   `json:"response_body"`
 }
 
+// switch recording request body at runtime
+func SwitchReqBody(b bool) {
+	if b {
+		atomic.StoreInt32(&reqBody, 1)
+	} else {
+		atomic.StoreInt32(&reqBody, 0)
+	}
+}
+
+// switch recording response body at runtime
+func SwitchRespBody(b bool) {
+	if b {
+		atomic.StoreInt32(&respBody, 1)
+	} else {
+		atomic.StoreInt32(&respBody, 0)
+	}
+}
+
 func Handler(cfg *Conf, h http.Handler) http.Handler {
 	var err error
 	logging, err = newAsyncFileLogger(cfg)
 	if err != nil {
 		panic(err)
 	}
+	if cfg.RequestBody {
+		reqBody = 1
+	}
+	if cfg.ResponseBody {
+		respBody = 1
+	}
 
 	return &handler{
-		handler:  h,
-		reqBody:  cfg.RequestBody,
-		respBody: cfg.ResponseBody,
+		handler: h,
 	}
 }
 
@@ -59,9 +84,6 @@ func Flush() error {
 
 type handler struct {
 	handler http.Handler
-
-	reqBody  bool
-	respBody bool
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -71,7 +93,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	reqbodybuf := bodybufpool.Get().(*bytes.Buffer)
 	reqbodybuf.Reset()
 	defer bodybufpool.Put(reqbodybuf)
-	lr := newLogReqBody(req.Body, reqbodybuf, h.reqBody && canRecordBody(req.Header))
+	lr := newLogReqBody(req.Body, reqbodybuf, atomic.LoadInt32(&reqBody) == 1 && canRecordBody(req.Header))
 	req.Body = lr
 
 	// wrap ResponseWriter
@@ -79,7 +101,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	respbodybuf.Reset()
 	defer bodybufpool.Put(respbodybuf)
 
-	lw := newResponseWriter(w, respbodybuf, h.respBody)
+	lw := newResponseWriter(w, respbodybuf, atomic.LoadInt32(&respBody) == 1)
 	url := *req.URL
 	h.handler.ServeHTTP(lw, req)
 	logBuf := fmtLog(req, url, t, lr, lw)
@@ -195,6 +217,8 @@ func canRecordBody(header http.Header) bool {
 	case "application/json":
 		return true
 	case "text/plain":
+		return true
+	case "application/x-www-form-urlencoded":
 		return true
 	default:
 		return false
