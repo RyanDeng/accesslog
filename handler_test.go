@@ -52,6 +52,7 @@ func TestHandler(t *testing.T) {
 	ast.Nil(err)
 	resp.Body.Close()
 	ast.Equal(200, resp.StatusCode)
+	Flush()
 
 	f, err := os.Open(filename)
 	ast.Nil(err)
