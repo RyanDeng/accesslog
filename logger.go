@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/enriquebris/goconcurrentqueue"
 )
 
 // the max log size
@@ -19,7 +21,7 @@ type logger interface {
 type asyncFileLogger struct {
 	filename string
 	file     *os.File
-	queue    chan *bytes.Buffer
+	queue goconcurrentqueue.Queue
 	close    chan struct{}
 	sizeNum  int64
 }
@@ -39,7 +41,7 @@ func newAsyncFileLogger(cfg *Conf) (logger, error) {
 	ret := &asyncFileLogger{
 		filename: cfg.Filename,
 		file:     f,
-		queue:    make(chan *bytes.Buffer, 10000),
+		queue:    goconcurrentqueue.NewFIFO(),
 		close:    make(chan struct{}),
 		sizeNum:  stat.Size(),
 	}
@@ -54,19 +56,26 @@ func openAppendFile(fileName string) (*os.File, error) {
 }
 
 func (l *asyncFileLogger) Log(buf *bytes.Buffer) error {
-	l.queue <- buf
+	l.queue.Enqueue(buf)
 	return nil
 }
 
 func (l *asyncFileLogger) loop() {
 	for {
 		select {
-		case buf := <-l.queue:
-			l.writeFile(buf)
 		case <-l.close:
 			return
+		default:
 		}
+		buf,err := l.queue.Dequeue()
+		if err != nil {
+			// 队列是空时返回error，sleep 一会儿
+			time.Sleep(time.Millisecond*10)
+			continue
+		}
+		l.writeFile(buf.(*bytes.Buffer))
 	}
+
 }
 
 func (l *asyncFileLogger) writeFile(buf *bytes.Buffer) {
@@ -104,15 +113,11 @@ func (l *asyncFileLogger) Close() error {
 	l.close <- struct{}{}
 
 	for {
-		select {
-		case buf := <-l.queue:
-			l.writeFile(buf)
-			if len(l.queue) == 0 {
-				goto Done
-			}
-		case <-time.After(time.Millisecond * 300):
+		buf, err := l.queue.Dequeue()
+		if err != nil {
 			goto Done
 		}
+		l.writeFile(buf.(*bytes.Buffer))
 	}
 
 Done:
