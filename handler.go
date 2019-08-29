@@ -82,6 +82,15 @@ func Flush() error {
 	return nil
 }
 
+type HealthStat struct {
+	LoggerBufferSize int
+}
+func FetchHealthStat() HealthStat {
+	return HealthStat{
+		LoggerBufferSize: logging.QueueBufferSize(),
+	}
+}
+
 type handler struct {
 	handler http.Handler
 }
