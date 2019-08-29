@@ -16,6 +16,7 @@ const maxSize int64 = 1024 * 1024 * 1800
 type logger interface {
 	Log(buf *bytes.Buffer) error
 	Close() error
+	QueueBufferSize() int // 内部队列的长度，方便监控使用
 }
 
 type asyncFileLogger struct {
@@ -107,6 +108,10 @@ func (l *asyncFileLogger) rotateLog() {
 		panic(err)
 	}
 	l.sizeNum = stat.Size()
+}
+
+func (l *asyncFileLogger) QueueBufferSize() int {
+	return l.queue.GetLen()
 }
 
 func (l *asyncFileLogger) Close() error {
