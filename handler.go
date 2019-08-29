@@ -86,8 +86,12 @@ type HealthStat struct {
 	LoggerBufferSize int
 }
 func FetchHealthStat() HealthStat {
+	queueSize := 0
+	if logging != nil {
+		queueSize = logging.QueueBufferSize()
+	}
 	return HealthStat{
-		LoggerBufferSize: logging.QueueBufferSize(),
+		LoggerBufferSize: queueSize,
 	}
 }
 
