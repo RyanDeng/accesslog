@@ -1,6 +1,7 @@
 package accesslog
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -21,8 +22,9 @@ type logger interface {
 
 type asyncFileLogger struct {
 	filename string
+	bufFile  *bufio.Writer
 	file     *os.File
-	queue goconcurrentqueue.Queue
+	queue    goconcurrentqueue.Queue
 	close    chan struct{}
 	sizeNum  int64
 }
@@ -42,6 +44,7 @@ func newAsyncFileLogger(cfg *Conf) (logger, error) {
 	ret := &asyncFileLogger{
 		filename: cfg.Filename,
 		file:     f,
+		bufFile:  bufio.NewWriter(f),
 		queue:    goconcurrentqueue.NewFIFO(),
 		close:    make(chan struct{}),
 		sizeNum:  stat.Size(),
@@ -68,10 +71,10 @@ func (l *asyncFileLogger) loop() {
 			return
 		default:
 		}
-		buf,err := l.queue.Dequeue()
+		buf, err := l.queue.Dequeue()
 		if err != nil {
 			// 队列是空时返回error，sleep 一会儿
-			time.Sleep(time.Millisecond*10)
+			time.Sleep(time.Millisecond * 10)
 			continue
 		}
 		l.writeFile(buf.(*bytes.Buffer))
@@ -83,7 +86,7 @@ func (l *asyncFileLogger) writeFile(buf *bytes.Buffer) {
 	if int64(buf.Len())+l.sizeNum > maxSize {
 		l.rotateLog()
 	}
-	n, err := l.file.Write(buf.Bytes())
+	n, err := l.bufFile.Write(buf.Bytes())
 	logbufpool.Put(buf)
 	if err != nil {
 		panic("cannot write access log")
@@ -92,7 +95,7 @@ func (l *asyncFileLogger) writeFile(buf *bytes.Buffer) {
 }
 
 func (l *asyncFileLogger) rotateLog() {
-	l.file.Sync()
+	l.bufFile.Flush()
 	l.file.Close()
 	err := os.Rename(l.filename, fmt.Sprintf("%s-%s", l.filename, time.Now().Format("20060102150405")))
 	if err != nil {
@@ -103,6 +106,7 @@ func (l *asyncFileLogger) rotateLog() {
 	if err != nil {
 		panic(err)
 	}
+	l.bufFile = bufio.NewWriter(l.file)
 	stat, err := l.file.Stat()
 	if err != nil {
 		panic(err)
@@ -126,6 +130,6 @@ func (l *asyncFileLogger) Close() error {
 	}
 
 Done:
-	l.file.Sync()
+	l.bufFile.Flush()
 	return l.file.Close()
 }

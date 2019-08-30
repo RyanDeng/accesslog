@@ -23,14 +23,13 @@ func TestLogger(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		l.Log(bytes.NewBufferString(fmt.Sprintf("haha%d\n", i)))
 	}
-	 // 由于loop异步，所以可能实际数量会小于等于100
-	ast.True(l.QueueBufferSize()>0)
-	ast.True(l.QueueBufferSize()<=100)
+	// 由于loop异步，所以可能实际数量会小于等于100
+	ast.True(l.QueueBufferSize() > 0)
+	ast.True(l.QueueBufferSize() <= 100)
 
 	err = l.Close()
 	ast.Nil(err)
-	ast.True(l.QueueBufferSize()==0)
-
+	ast.True(l.QueueBufferSize() == 0)
 
 	f, err := os.Open(testLogName)
 	ast.Nil(err)
