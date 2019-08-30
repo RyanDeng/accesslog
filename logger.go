@@ -13,7 +13,7 @@ import (
 
 // the max log size
 const maxSize int64 = 1024 * 1024 * 1800
-const bufioSize = 4096 * 10
+const bufioSize = 4096 * 50
 
 type logger interface {
 	Log(buf *bytes.Buffer) error
