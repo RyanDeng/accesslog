@@ -85,6 +85,7 @@ func Flush() error {
 type HealthStat struct {
 	LoggerBufferSize int
 }
+
 func FetchHealthStat() HealthStat {
 	queueSize := 0
 	if logging != nil {
@@ -232,6 +233,8 @@ func canRecordBody(header http.Header) bool {
 	case "text/plain":
 		return true
 	case "application/x-www-form-urlencoded":
+		return true
+	case "application/xml", "text/xml":
 		return true
 	default:
 		return false
