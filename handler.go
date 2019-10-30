@@ -234,8 +234,8 @@ func canRecordBody(header http.Header) bool {
 		return true
 	case "application/x-www-form-urlencoded":
 		return true
-	case "application/xml", "text/xml":
-		return true
+	//case "application/xml", "text/xml":
+	//	return true
 	default:
 		return false
 	}
