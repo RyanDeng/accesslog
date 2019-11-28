@@ -163,7 +163,12 @@ func fmtLog(req *http.Request, u url.URL, t time.Time, lr logReqBody, lw logResp
 		if req.ContentLength != int64(reqBodySize) {
 			buf.WriteString("{too large to display}")
 		} else {
-			buf.Write(lr.Body())
+			for _, bb := range lr.Body() {
+				if bb == '\n' {
+					continue
+				}
+				buf.WriteByte(bb)
+			}
 		}
 	} else {
 		buf.WriteString("{no data}")
@@ -234,8 +239,8 @@ func canRecordBody(header http.Header) bool {
 		return true
 	case "application/x-www-form-urlencoded":
 		return true
-	//case "application/xml", "text/xml":
-	//	return true
+	case "application/xml", "text/xml":
+		return true
 	default:
 		return false
 	}
