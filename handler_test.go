@@ -45,6 +45,11 @@ func TestHandler(t *testing.T) {
 	resp, err = http.Post(ts.URL, "application/json", strings.NewReader(`{"user": "admin"}`))
 	ast.Nil(err)
 	resp.Body.Close()
+	// 换行,会自动去掉
+	resp, err = http.Post(ts.URL, "application/json", strings.NewReader(`{"user": 
+"admin"}`))
+	ast.Nil(err)
+	resp.Body.Close()
 	ast.Equal(200, resp.StatusCode)
 	SwitchReqBody(false)
 	SwitchRespBody(false)
@@ -66,10 +71,11 @@ func TestHandler(t *testing.T) {
 	err = scanner.Err()
 	ast.Nil(err)
 
-	ast.Equal(3, len(lines))
+	ast.Equal(4, len(lines))
 	checkLine(ast, lines[0], "{no data}", "{no data}")
 	checkLine(ast, lines[1], `{"user": "admin"}`, `{"name": "peter", "age": 12}`)
-	checkLine(ast, lines[2], "{no data}", "{no data}")
+	checkLine(ast, lines[2], `{"user": "admin"}`, `{"name": "peter", "age": 12}`)
+	checkLine(ast, lines[3], "{no data}", "{no data}")
 
 }
 
