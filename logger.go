@@ -13,7 +13,7 @@ import (
 
 // the max log size
 const maxSize int64 = 1024 * 1024 * 1800
-const bufioSize = 4096 * 50
+const bufioSize = 4096
 
 type logger interface {
 	Log(buf *bytes.Buffer) error
@@ -42,10 +42,13 @@ func newAsyncFileLogger(cfg *Conf) (logger, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.BufSize == 0 {
+		cfg.BufSize = bufioSize
+	}
 	ret := &asyncFileLogger{
 		filename: cfg.Filename,
 		file:     f,
-		bufFile:  bufio.NewWriterSize(f, bufioSize),
+		bufFile:  bufio.NewWriterSize(f, cfg.BufSize),
 		queue:    goconcurrentqueue.NewFIFO(),
 		close:    make(chan struct{}),
 		sizeNum:  stat.Size(),

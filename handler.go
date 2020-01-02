@@ -37,6 +37,7 @@ type Conf struct {
 	Filename     string `json:"filename"`
 	RequestBody  bool   `json:"request_body"`
 	ResponseBody bool   `json:"response_body"`
+	BufSize      int    `json:"buf_size"` // memory buf size of the data pending to write disk
 }
 
 // switch recording request body at runtime
