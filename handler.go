@@ -3,6 +3,7 @@ package accesslog
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -34,10 +35,11 @@ var (
 )
 
 type Conf struct {
-	Filename     string `json:"filename"`
-	RequestBody  bool   `json:"request_body"`
-	ResponseBody bool   `json:"response_body"`
-	BufSize      int    `json:"buf_size"` // memory buf size of the data pending to write disk
+	Filename     string  `json:"filename"`
+	RequestBody  bool    `json:"request_body"`
+	ResponseBody bool    `json:"response_body"`
+	BufSize      int     `json:"buf_size"`    // memory buf size of the data pending to write disk
+	SampleRate   float64 `json:"sample_rate"` // 日志输出采样率，1表示百分百。 0.01表示百分之1
 }
 
 // switch recording request body at runtime
@@ -70,9 +72,13 @@ func Handler(cfg *Conf, h http.Handler) http.Handler {
 	if cfg.ResponseBody {
 		respBody = 1
 	}
+	if cfg.SampleRate == 0 {
+		cfg.SampleRate = 1.0
+	}
 
 	return &handler{
-		handler: h,
+		handler:    h,
+		sampleRate: cfg.SampleRate,
 	}
 }
 
@@ -98,7 +104,8 @@ func FetchHealthStat() HealthStat {
 }
 
 type handler struct {
-	handler http.Handler
+	handler    http.Handler
+	sampleRate float64
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -119,8 +126,11 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	lw := newResponseWriter(w, respbodybuf, atomic.LoadInt32(&respBody) == 1)
 	url := *req.URL
 	h.handler.ServeHTTP(lw, req)
-	logBuf := fmtLog(req, url, t, lr, lw)
-	logging.Log(logBuf)
+	if rand.Float64() <= h.sampleRate {
+		logBuf := fmtLog(req, url, t, lr, lw)
+		logging.Log(logBuf)
+	}
+
 }
 
 func fmtLog(req *http.Request, u url.URL, t time.Time, lr logReqBody, lw logResponseWriter) *bytes.Buffer {
