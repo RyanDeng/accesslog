@@ -29,9 +29,10 @@ var (
 			return bytes.NewBuffer(make([]byte, 0, bodyBufMax))
 		},
 	}
-	logging  logger
-	reqBody  int32 = 0
-	respBody int32 = 0
+	logging    logger
+	reqBody    int32 = 0
+	respBody   int32 = 0
+	sampleRate       = atomic.Value{} // float64
 )
 
 type Conf struct {
@@ -49,6 +50,13 @@ func SwitchReqBody(b bool) {
 	} else {
 		atomic.StoreInt32(&reqBody, 0)
 	}
+}
+
+func SetSampleRate(f float64) {
+	if f == 0 {
+		f = 1.0
+	}
+	sampleRate.Store(f)
 }
 
 // switch recording response body at runtime
@@ -75,10 +83,9 @@ func Handler(cfg *Conf, h http.Handler) http.Handler {
 	if cfg.SampleRate == 0 {
 		cfg.SampleRate = 1.0
 	}
-
+	sampleRate.Store(cfg.SampleRate)
 	return &handler{
-		handler:    h,
-		sampleRate: cfg.SampleRate,
+		handler: h,
 	}
 }
 
@@ -104,8 +111,7 @@ func FetchHealthStat() HealthStat {
 }
 
 type handler struct {
-	handler    http.Handler
-	sampleRate float64
+	handler http.Handler
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -126,7 +132,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	lw := newResponseWriter(w, respbodybuf, atomic.LoadInt32(&respBody) == 1)
 	url := *req.URL
 	h.handler.ServeHTTP(lw, req)
-	if rand.Float64() <= h.sampleRate {
+	if rand.Float64() <= sampleRate.Load().(float64) {
 		logBuf := fmtLog(req, url, t, lr, lw)
 		logging.Log(logBuf)
 	}
