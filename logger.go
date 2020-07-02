@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -136,4 +137,30 @@ func (l *asyncFileLogger) Close() error {
 Done:
 	l.bufFile.Flush()
 	return l.file.Close()
+}
+
+type streamLogger struct {
+	io.Writer
+}
+
+func newStreamLogger(w io.Writer) logger {
+	return &streamLogger{
+		Writer: w,
+	}
+}
+
+func (s *streamLogger) Log(buf *bytes.Buffer) error {
+	_, err := s.Writer.Write(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *streamLogger) Close() error {
+	return nil
+}
+
+func (s *streamLogger) QueueBufferSize() int {
+	return 0
 }

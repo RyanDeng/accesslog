@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -68,9 +69,18 @@ func SwitchRespBody(b bool) {
 	}
 }
 
+func LoggerFromConfig(cfg *Conf) (logger, error) {
+	switch cfg.Filename {
+	case "-":
+		return newStreamLogger(os.Stderr), nil
+	default:
+		return newAsyncFileLogger(cfg)
+	}
+}
+
 func Handler(cfg *Conf, h http.Handler) http.Handler {
 	var err error
-	logging, err = newAsyncFileLogger(cfg)
+	logging, err = LoggerFromConfig(cfg)
 	if err != nil {
 		panic(err)
 	}
